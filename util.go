@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	BadHttpStatus = sentinelError("Non 200-level http status")
+	ErrBadHttpStatus = sentinelError("Non 200-level http status")
 )
 
 func handleHttpResponse(resp *http.Response, target interface{}) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("Got http response status %d %w", resp.StatusCode, BadHttpStatus)
+		return fmt.Errorf("Got http response status %d %w", resp.StatusCode, ErrBadHttpStatus)
 	}
 
 	if target == nil {

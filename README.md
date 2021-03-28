@@ -25,6 +25,7 @@ if err != nil {
 
 data := // retrieve data
 
+// set your timeout based on your needs
 ctx, cancel := context.WithTimeout(context.TODO(), 60*time.Second)
 defer cancel()
 

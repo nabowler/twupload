@@ -21,7 +21,7 @@ type (
 )
 
 const (
-	UnknownMediaType sentinelError = "Unknown Media Type"
+	ErrUnknownMediaType sentinelError = "Unknown Media Type"
 )
 
 var (
@@ -40,10 +40,16 @@ func (uploader uploader) Upload(ctx context.Context, data []byte) (MediaUploadRe
 	} else if strings.HasPrefix(mimeType, "image/") {
 		category = MediaCategoryImage
 	} else {
-		return upResponse, UnknownMediaType
+		return upResponse, ErrUnknownMediaType
 	}
 
-	// uploading follows the flow
+	if category == MediaCategoryImage && len(data) <= uploader.chunkSize {
+		// static images below the chunk size can be uploaded through a single step
+		// which reduces the chances of network-related failures
+		return uploader.onestepImageUpload(ctx, data)
+	}
+
+	// chunked uploading follows the flow
 	//   POST INIT
 	//   1..n POST APPEND
 	//   POST FINALIZE
@@ -186,4 +192,28 @@ func (uploader uploader) handleProcessing(ctx context.Context, origResponse Medi
 	}
 
 	return uploader.handleProcessing(ctx, upResponse)
+}
+
+func (uploader uploader) onestepImageUpload(ctx context.Context, data []byte) (MediaUploadResponse, error) {
+	var upResponse MediaUploadResponse
+
+	encoded := base64.StdEncoding.EncodeToString(data)
+
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return upResponse, err
+	}
+	q := u.Query()
+	q.Set("media_category", string(MediaCategoryImage))
+	u.RawQuery = q.Encode()
+
+	resp, err := post(ctx, uploader.httpClient, u.String(), url.Values{
+		"media_data": []string{encoded},
+	})
+
+	if err != nil {
+		return upResponse, err
+	}
+
+	return upResponse, handleHttpResponse(resp, &upResponse)
 }
